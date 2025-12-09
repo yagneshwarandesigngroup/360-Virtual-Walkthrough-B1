@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>360° Virtual Walkthrough</title>
+  <script src="https://cdn.pannellum.org/2.5/pannellum.js"></script>
+  <link rel="stylesheet" href="https://cdn.pannellum.org/2.5/pannellum.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+    body {
+      background: black;
+      overflow: hidden;
+    }
+    /* Loading Screen */
+    #loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      z-index: 10;
+    }
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: black;
+      opacity: 0.8;
+      z-index: 1;
+    }
+    .loading-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 0;
+    }
+    .loading-logo {
+      width: 300px; /* Increased by 20% from 180px */
+      margin-bottom: 15px;
+      position: relative;
+      z-index: 2;
+    }
+    .loading-text {
+      font-size: 18px;
+      font-weight: bold;
+      color: #fff;
+      position: relative;
+      z-index: 2;
+    }
+    /* 360 Viewer */
+    #viewer {
+      width: 100vw;
+      height: 100vh;
+    }
+    /* Navigation Bar */
+    #navigation {
+      position: fixed;
+      bottom: 20px;
+      width: 100%;
+      display: flex;
+      justify-content: space-evenly;
+      align-items: center;
+      z-index: 5;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+    }
+    .nav-item img {
+      width: 63px;   /* Decreased by 10% from 70px */
+      height: 63px;
+      border-radius: 50%;
+      border: 2px solid white;
+      object-fit: cover;
+      transition: transform 0.3s, border 0.3s;
+    }
+    .nav-item img:hover {
+      transform: scale(1.1);
+      border-color: yellow;
+    }
+    .nav-item span {
+      font-size: 14px;
+      color: black;
+      margin-top: 5px;
+      transition: font-weight 0.4s;
+    }
+    .nav-item:hover span {
+      font-weight: bold;
+    }
+    /* Info Panel (Sidebar) */
+    #info-panel {
+      position: fixed;
+      left: -350px;
+      top: 0;
+      width: 350px;
+      height: 100%;
+      background: rgba(0,0,0,0.9);
+      color: white;
+      padding: 20px;
+      transition: left 0.4s ease-in-out;
+      z-index: 6;
+    }
+    #info-panel .pullout-arrow {
+      position: absolute;
+      top: 50%;
+      right: -30px;
+      background: rgba(0,0,0,0.9);
+      color: white;
+      padding: 10px;
+      border-radius: 0 5px 5px 0;
+      cursor: pointer;
+      transform: translateY(-50%);
+      transition: opacity 0.5s ease, background 0.3s;
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #info-panel .pullout-arrow:hover {
+      background: rgba(0,0,0,0.4);
+    }
+    #info-panel .info-content {
+      margin-top: 50px;
+    }
+    #info-panel .info-logo {
+      width: 190px; /* Increased by 5% from 140px */
+      margin: 20px auto 20px;
+      display: block;
+      cursor: pointer;
+    }
+    #info-panel #info-text {
+      font-size: 14px;
+      line-height: 1.5;
+      white-space: pre-line;
+    }
+    /* Material Panel (Sidebar for Material Details) */
+    #material-panel {
+      position: fixed;
+      left: -350px;
+      top: 0; /* Occupies same vertical space as info panel */
+      width: 350px;
+      height: 100%;
+      background: rgba(200,0,0,0.8); /* Semi-transparent red */
+      color: white;
+      padding: 20px;
+      transition: left 0.4s ease-in-out;
+      z-index: 7;
+    }
+    #material-panel .pullout-arrow {
+      position: absolute;
+      top: calc(50% + 20mm); /* Moved down by 20mm relative to center */
+      right: -30px;
+      background: rgba(200,0,0,0.9);
+      color: white;
+      padding: 10px;
+      border-radius: 0 5px 5px 0;
+      cursor: pointer;
+      transform: translateY(-50%);
+      transition: opacity 0.5s ease, background 0.3s;
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #material-panel .pullout-arrow:hover {
+      background: rgba(200,0,0,0.4);
+    }
+    #material-panel .info-content {
+      margin-top: 50px;
+    }
+    #material-panel .info-logo {
+      width: 190px;
+      margin: 20px auto 20px;
+      display: block;
+      cursor: pointer;
+    }
+    #material-panel #material-text {
+      font-size: 14px;
+      line-height: 1.5;
+      white-space: pre-line;
+    }
+    /* Sidebar Labels for Info Panel */
+    #info-panel .sidebar-label {
+      position: absolute;
+      right: calc(-30px - 10mm); /* 10mm gap from pullout arrow */
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      font-weight: bold;
+      color: black;
+      text-align: left;
+      opacity: 1;
+      transition: opacity 1s ease-out;
+      z-index: 10;
+    }
+    /* Sidebar Labels for Material Panel */
+    #material-panel .sidebar-label {
+      position: absolute;
+      right: calc(-30px - 19.5mm); /* 10mm gap from pullout arrow */
+      top: calc(50% + 20mm); /* Align with material pullout arrow */
+      transform: translateY(-50%);
+      font-size: 14px;
+      font-weight: bold;
+      color: black;
+      text-align: left;
+      opacity: 1;
+      transition: opacity 1s ease-out;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div class="loading-overlay"></div>
+    <img src="loading.jpg" alt="Loading" class="loading-image">
+    <img src="logo.png" alt="Logo" class="loading-logo">
+    <p class="loading-text">Your 360° Virtual Walkthrough is setting up...</p>
+  </div>
+  
+  <!-- 360 Viewer -->
+  <div id="viewer"></div>
+  
+  <!-- Navigation Bar -->
+  <div id="navigation">
+    <div class="nav-item" data-scene="hall">
+      <img src="hall.png" alt="Living Room">
+      <span>Living Room</span>
+    </div>
+    <div class="nav-item" data-scene="kitchen">
+      <img src="kitchen.png" alt="Kitchen">
+      <span>Kitchen</span>
+    </div>
+    <div class="nav-item" data-scene="mbed">
+      <img src="mbed.png" alt="Master Bedroom">
+      <span>Master Bedroom</span>
+    </div>
+    <div class="nav-item" data-scene="balcony">
+      <img src="balcony.png" alt="Balcony">
+      <span>Balcony</span>
+    </div>
+  </div>
+  
+  <!-- Info Panel (Sidebar) -->
+  <div id="info-panel">
+    <div class="sidebar-label" id="info-label">Info</div>
+    <div class="pullout-arrow" id="info-arrow">❯</div>
+    <div class="info-content">
+      <img src="logo.png" alt="Logo" class="info-logo">
+      <p id="info-text"></p>
+    </div>
+  </div>
+  
+  <!-- Material Panel (Sidebar for Material Details) -->
+  <div id="material-panel">
+    <div class="sidebar-label" id="material-label">Materials</div>
+    <div class="pullout-arrow" id="material-arrow">❯</div>
+    <div class="info-content">
+      <img src="logo.png" alt="Logo" class="info-logo">
+      <p id="material-text"></p>
+    </div>
+  </div>
+  
+  <script>
+    // Company details for Info Panel.
+    var companyDetails = "<div style='font-family: Arial, sans-serif; font-size: 12px; line-height: 1.6;'>" +
+      "<h2 style='font-size: 14px; margin-bottom: 12px;'><strong>Yagneshwaran Design Group – IT Solutions for Architecture & Construction</strong></h2>" +
+      "<p>We provide cutting-edge <strong>IT services</strong> for architects, builders, and real estate firms, including:</p>" +
+      "<ul style='list-style: none; padding: 0; margin-top: 8px;'>" +
+      "<li style='margin-bottom: 4px;'>✔ <strong>360° Virtual Walkthroughs & 3D Visualization</strong></li>" +
+      "<li style='margin-bottom: 4px;'>✔ <strong>BIM Modeling</strong></li>" +
+      "<li style='margin-bottom: 4px;'>✔ <strong>Construction ERP & Project Management Software</strong></li>" +
+      "<li style='margin-bottom: 4px;'>✔ <strong>Smart Home & IoT Integration</strong></li>" +
+      "<li style='margin-bottom: 4px;'>✔ <strong>AI & Data Analytics for Construction</strong></li>" +
+      "<li style='margin-bottom: 4px;'>✔ <strong>Cloud & Web Solutions</strong></li>" +
+      "</ul>" +
+      "<p style='margin-top: 8px;'><strong>Innovate. Optimize. Build Smarter.</strong></p>" +
+      "<p>📍 Salem & Bangalore | 🌐 Serving Local & International Clients</p>" +
+      "</div>";
+    document.getElementById('info-text').innerHTML = companyDetails;
+    
+    // Material details for each room.
+    var materialDetails = {
+      "hall": "Living Room Materials:<br>" +
+              "- <strong>Marble Flooring</strong> for a sleek, luxurious finish<br>" +
+              "- <strong>Plush Fabric Sofa</strong> ensuring supreme comfort<br>" +
+              "- <strong>Modern Metal Fixtures</strong> that add an industrial edge<br>" +
+              "- <strong>Bisoke Wood Accents</strong> to introduce natural warmth<br>" +
+              "- <strong>High-Gloss Finishes</strong> for a polished look<br>" +
+              "- <strong>Textured Drapes</strong> that enhance style",
+      "kitchen": "Kitchen Materials:<br>" +
+                 "- <strong>Granite Countertops</strong> that combine durability and elegance<br>" +
+                 "- <strong>Stainless Steel Appliances</strong> for a modern, hygienic workspace<br>" +
+                 "- <strong>Ceramic Tiles</strong> offering easy maintenance<br>" +
+                 "- <strong>Quartz Backsplash</strong> for a refined accent<br>" +
+                 "- <strong>Wood Cabinetry</strong> blending warmth with contemporary design",
+      "mbed": "Master Bedroom Materials:<br>" +
+              "- <strong>Polished Hardwood Floors</strong> exuding luxury<br>" +
+              "- <strong>Premium Upholstered Bed</strong> with fine linen for ultimate comfort<br>" +
+              "- <strong>Brushed Metal Lamps</strong> adding a modern touch<br>" +
+              "- <strong>Soft Cotton Curtains</strong> for a serene, restful ambiance",
+      "balcony": "Balcony Materials:<br>" +
+                 "- <strong>Composite Decking</strong> for a durable, stylish outdoor space<br>" +
+                 "- <strong>Glass Railings</strong> offering an unobstructed view<br>" +
+                 "- <strong>Weather-Resistant Metal Accents</strong> for modern aesthetics<br>" +
+                 "- <strong>Stone Veneer</strong> for a natural, elegant finish"
+    };
+    document.getElementById('material-text').innerHTML = materialDetails["hall"];
+    
+    // Use media query to set different zoom settings for PC and mobile.
+    var isMobile = window.matchMedia("only screen and (max-width: 767px)").matches;
+    var viewerConfig = {
+      "default": {
+        "firstScene": "hall",
+        "sceneFadeDuration": 1000,
+        "autoLoad": true,
+        "autoRotate": -2,
+        "minPitch": -120,
+        "maxPitch": 120,
+        "hfov": isMobile ? 80 : 90,         // Mobile: lower hfov (more zoomed in)
+        "minHfov": 45,
+        "maxHfov": isMobile ? 60 : 100        // Mobile: lower max hfov
+      },
+      "scenes": {
+        "hall": {
+          "type": "equirectangular",
+          "panorama": "hall.png"
+        },
+        "kitchen": {
+          "type": "equirectangular",
+          "panorama": "kitchen.png"
+        },
+        "mbed": {
+          "type": "equirectangular",
+          "panorama": "mbed.png"
+        },
+        "balcony": {
+          "type": "equirectangular",
+          "panorama": "balcony.png"
+        }
+      }
+    };
+    var viewer = pannellum.viewer('viewer', viewerConfig);
+    
+    // Function to show sidebar labels for a given duration.
+    function showLabel(sidebarId, duration) {
+      var label = document.querySelector(sidebarId + " .sidebar-label");
+      label.style.opacity = 1;
+      setTimeout(() => {
+        label.style.opacity = 0;
+      }, duration);
+    }
+    
+    // On initial load, show labels for 4 seconds.
+    window.addEventListener('load', function() {
+      showLabel("#info-panel", 4000);
+      showLabel("#material-panel", 4000);
+      setTimeout(() => {
+        document.getElementById('loading-screen').style.display = 'none';
+      }, 2000);
+    });
+    
+    // When a navigation item is clicked, update both Info and Material panels and show labels for 2 seconds.
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', function() {
+        var sceneId = this.dataset.scene;
+         viewer.loadScene(sceneId);
+    // Update Info Panel.
+    let infoText = '';
+    switch (sceneId) {
+      case 'hall':
+        infoText = '<strong>Living Room:</strong> A grand and inviting space designed for comfort and elegance. Featuring expansive windows, premium Italian marble flooring, and custom-designed furniture.';
+        break;
+      case 'kitchen':
+        infoText = '<strong>Kitchen:</strong> A state-of-the-art culinary space equipped with high-end quartz countertops, soft-close cabinetry, and top-tier built-in appliances.';
+        break;
+      case 'mbed':
+        infoText = '<strong>Master Bedroom:</strong> A serene sanctuary combining luxury with relaxation, featuring warm ambient lighting, plush hardwood floors, and a custom-designed wardrobe.';
+        break;
+      case 'balcony':
+        infoText = '<strong>Balcony:</strong> A private outdoor haven designed for relaxation, offering stunning panoramic views and elegant glass railings.';
+        break;
+      default:
+        infoText = 'Click a room to explore.';
+    }
+    // Update Info Panel with HTML (so the <strong> tags are rendered)
+    document.getElementById('info-text').innerHTML = infoText;
+    // Update Material Panel.
+    document.getElementById('material-text').innerHTML = materialDetails[sceneId] || '';
+        // Show sidebar labels for 2 seconds.
+        showLabel("#info-panel", 2000);
+        showLabel("#material-panel", 2000);
+      });
+    });
+    
+    // When the Info Panel logo is clicked, reset info to company details.
+    document.querySelector('#info-panel .info-logo').addEventListener('click', function() {
+      document.getElementById('info-text').innerHTML = companyDetails;
+    });
+    
+    // Toggle the Info Panel (Sidebar)
+    const infoArrow = document.querySelector('#info-panel .pullout-arrow');
+    const materialArrow = document.querySelector('#material-panel .pullout-arrow');
+    infoArrow.addEventListener('click', function() {
+      const infoPanel = document.getElementById('info-panel');
+      const materialPanel = document.getElementById('material-panel');
+      // Close Material Panel and fade out its arrow.
+      materialPanel.style.left = '-350px';
+      materialArrow.style.opacity = '0';
+      materialArrow.style.pointerEvents = 'none';
+      
+      // Toggle Info Panel.
+      if (infoPanel.style.left === '0px') {
+        infoPanel.style.left = '-350px';
+        this.innerHTML = '❯';
+        // Fade in material arrow after closing.
+        setTimeout(() => {
+          materialArrow.style.opacity = '1';
+          materialArrow.style.pointerEvents = 'auto';
+        }, 500);
+      } else {
+        infoPanel.style.left = '0px';
+        this.innerHTML = '❮';
+        // Fade out material arrow.
+        materialArrow.style.opacity = '0';
+        materialArrow.style.pointerEvents = 'none';
+      }
+    });
+    
+    // Toggle the Material Panel (Sidebar)
+    materialArrow.addEventListener('click', function() {
+      const materialPanel = document.getElementById('material-panel');
+      const infoPanel = document.getElementById('info-panel');
+      // Close Info Panel and fade out its arrow.
+      infoPanel.style.left = '-350px';
+      infoArrow.style.opacity = '0';
+      infoArrow.style.pointerEvents = 'none';
+      
+      // Toggle Material Panel.
+      if (materialPanel.style.left === '0px') {
+        materialPanel.style.left = '-350px';
+        this.innerHTML = '❯';
+        // Fade in info arrow after closing.
+        setTimeout(() => {
+          infoArrow.style.opacity = '1';
+          infoArrow.style.pointerEvents = 'auto';
+        }, 500);
+      } else {
+        materialPanel.style.left = '0px';
+        this.innerHTML = '❮';
+        // Fade out info arrow.
+        infoArrow.style.opacity = '0';
+        infoArrow.style.pointerEvents = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
